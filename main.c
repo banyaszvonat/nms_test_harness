@@ -5,7 +5,7 @@
 typedef int (*PFILTERSETALLOC)(void *, void *, void *, void *);
 typedef int (*PFILTERCREATE)(void *, long int, void *, long int);
 typedef size_t (*PFILTERGETBUFFERSIZE)(void*, char *);
-typedef int (*PFILTERFILTER)(void *, char*, char *, int);
+typedef int (*PFILTERFILTER)(void *, char*, char *, size_t);
 
 PFILTERSETALLOC ProfanityFilter_SetAllocator;
 PFILTERCREATE ProfanityFilter_Create;
@@ -114,25 +114,25 @@ int harness_initialize_filter(void *dictionary_src_ptr, void **dictionary_dst_pt
 	//ProfanityFilter_CreateFilter()
 }
 
-size_t buffersize(void * dictionary, char * test_input)
+size_t harness_buffersize(void * dictionary, char * test_input)
 {
 	fprintf(stderr, "GetRequiredBufferSize executing...\n");
 	size_t bufsize = ProfanityFilter_GetRequiredBufferSize(dictionary, test_input);
-	fprintf(stderr, "GetRequiredBufferSize returned: %d\n", bufsize);
+	fprintf(stderr, "GetRequiredBufferSize returned: %zd\n", bufsize);
 	return bufsize;
 }
 
-int harness_filter(void * dictionary, char * test_input, char * output)
+int harness_filter(void * dictionary, char * test_input, char * output, size_t buffersize)
 {
-	fprintf(stderr, "GetRequiredBufferSize executing...\n");
-	int bufsize = ProfanityFilter_GetRequiredBufferSize(dictionary, test_input);
-	fprintf(stderr, "GetRequiredBufferSize returned: %d\n", bufsize);
+	//fprintf(stderr, "GetRequiredBufferSize executing...\n");
+	//int bufsize = ProfanityFilter_GetRequiredBufferSize(dictionary, test_input);
+	//fprintf(stderr, "GetRequiredBufferSize returned: %d\n", bufsize);
 	//TODO: do this without casting to size_t later
 	//output = malloc((size_t) bufsize);
 	//return 0;
 	//TODO: figure out arguments here
 	fprintf(stderr, "Filter executing...\n");
-	return ProfanityFilter_Filter(dictionary, test_input, output, bufsize);
+	return ProfanityFilter_Filter(dictionary, test_input, output, buffersize);
 }
 
 
@@ -140,7 +140,7 @@ int harness_filter(void * dictionary, char * test_input, char * output)
 int main(int argc, char **argv)
 {
 	void *dictionary_src_ptr;
-	void *dictionary;
+	void *dictionary; // dictionary is allocated by the library, so we don't malloc() here. we just need a pointer to hold the address ProfanityFilter_Create() gives
 	char *output;
 	size_t buffersize;
 	
@@ -175,7 +175,10 @@ int main(int argc, char **argv)
 		return 4;
 	}
 	
-	if(harness_filter(third_ptr, argv[1], output) > 0)
+	buffersize = harness_buffersize(dictionary, argv[1]);
+	output = malloc(buffersize);
+
+	if(harness_filter(dictionary, argv[1], output, buffersize) > 0)
 	{
 		printf("not filtered: %s\n", output);
 	}
