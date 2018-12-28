@@ -20,8 +20,8 @@ int harness_load_symbols()
 	LPVOID errorMsg;
 	HMODULE profanity_filter = LoadLibraryA("ProfanityFilter_x64_v120");
 	DWORD lastError;
-	
-	
+
+
 	if(!profanity_filter)
 	{
 		lastError = GetLastError();
@@ -29,8 +29,8 @@ int harness_load_symbols()
 		fprintf(stderr, "Error loading library: %s\n", (char *) errorMsg);
 		return 1;
 	}
-	
-	
+
+
 	ProfanityFilter_SetAllocator = (PFILTERSETALLOC) GetProcAddress(profanity_filter, "ProfanityFilter_SetAllocator");
 	
 	if(!ProfanityFilter_SetAllocator)
@@ -40,9 +40,9 @@ int harness_load_symbols()
 		fprintf(stderr, "Error loading function SetAllocator: %s\n", (char *) errorMsg);
 		return 2;
 	}
-	
+
 	ProfanityFilter_Create = (PFILTERCREATE) GetProcAddress(profanity_filter, "ProfanityFilter_Create");
-	
+
 	if(!ProfanityFilter_Create)
 	{
 		lastError = GetLastError();
@@ -50,9 +50,9 @@ int harness_load_symbols()
 		fprintf(stderr, "Error loading function Create: %s\n", (char *) errorMsg);
 		return 2;
 	}
-	
+
 	ProfanityFilter_GetRequiredBufferSize = (PFILTERGETBUFFERSIZE) GetProcAddress(profanity_filter, "ProfanityFilter_GetRequiredBufferSize");
-	
+
 	if(!ProfanityFilter_GetRequiredBufferSize)
 	{
 		lastError = GetLastError();
@@ -60,7 +60,7 @@ int harness_load_symbols()
 		fprintf(stderr, "Error loading function GetRequiredBufferSize: %s\n", (char *) errorMsg);
 		return 2;
 	}
-	
+
 	ProfanityFilter_Filter = (PFILTERFILTER) GetProcAddress(profanity_filter, "ProfanityFilter_Filter");
 
 	if(!ProfanityFilter_Filter)
@@ -70,9 +70,9 @@ int harness_load_symbols()
 		fprintf(stderr, "Error loading function Filter: %s\n", (char *) errorMsg);
 		return 2;
 	}
-	
-	
-	
+
+
+
 	if(!ProfanityFilter_GetRequiredBufferSize || !ProfanityFilter_Create || !ProfanityFilter_Filter)
 	{
 		fprintf(stderr, "Error getting symbol address: %x\n", GetLastError());
@@ -131,10 +131,12 @@ int harness_filter(void * dictionary, char * test_input, char * output, size_t b
 	//output = malloc((size_t) bufsize);
 	//return 0;
 	//TODO: figure out arguments here
-	fprintf(stderr, "Filter executing...\n");
-	return ProfanityFilter_Filter(dictionary, test_input, output, buffersize);
-}
+	int retVal;
 
+	fprintf(stderr, "Filter executing...\n");
+	retVal = ProfanityFilter_Filter(dictionary, test_input, output, buffersize);
+	return retVal;
+}
 
 
 int main(int argc, char **argv)
@@ -142,21 +144,26 @@ int main(int argc, char **argv)
 	void *dictionary_src_ptr;
 	void *dictionary; // dictionary is allocated by the library, so we don't malloc() here. we just need a pointer to hold the address ProfanityFilter_Create() gives
 	char *output;
-	size_t buffersize;
 	
+	FILE *inputfile;
+	char * filecontents;
+	long length;
+	size_t buffersize = 0;
+
 	if(argc < 2)
 	{
-		printf("Usage: %s test_input\n", argv[0]);
+		printf("Usage: %s inputfile\n", argv[0]);
 		return 1;
 	}
-	
+
+
 	fprintf(stderr, "loading symbols...\n");
 	if(harness_load_symbols() > 0)
 	{
 		printf("symbol load fail\n");
 		return 2;
 	}
-	
+
 	fprintf(stderr, "loading dictionary...\n");
 	if((dictionary_src_ptr = harness_load_dictionary()) == NULL)
 	{
@@ -165,7 +172,7 @@ int main(int argc, char **argv)
 		CloseHandle(dictionary_src_file);
 		return 3;
 	}
-	
+
 	fprintf(stderr, "initializing filter...\n");
 	if(harness_initialize_filter(dictionary_src_ptr, &dictionary) > 0)
 	{
@@ -174,11 +181,28 @@ int main(int argc, char **argv)
 		CloseHandle(dictionary_src_file);
 		return 4;
 	}
-	
-	buffersize = harness_buffersize(dictionary, argv[1]);
+
+	// open test input file and read contents
+	inputfile = fopen(argv[1], "rb");
+
+	if(inputfile)
+	{
+		fseek(inputfile, 0, SEEK_END);
+		length = ftell(inputfile);
+		fseek(inputfile, 0, SEEK_SET);
+		filecontents = malloc(length+1);
+
+		fread(filecontents, length, 1, inputfile);
+		fclose(inputfile);
+
+		filecontents[length] = 0;
+	}
+
+	//we already know the buffer size, but let's consult the library too
+	buffersize = harness_buffersize(dictionary, filecontents);
 	output = malloc(buffersize);
 
-	if(harness_filter(dictionary, argv[1], output, buffersize) > 0)
+	if(harness_filter(dictionary, filecontents, output, buffersize) > 0)
 	{
 		printf("not filtered: %s\n", output);
 	}
@@ -186,7 +210,7 @@ int main(int argc, char **argv)
 	{
 		printf("Filtered or something: %s\n", output);
 	}
-	
+
 	free(output);
 	CloseHandle(dictionary_source);
 	CloseHandle(dictionary_src_file);
