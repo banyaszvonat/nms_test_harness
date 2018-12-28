@@ -32,7 +32,7 @@ int harness_load_symbols()
 
 
 	ProfanityFilter_SetAllocator = (PFILTERSETALLOC) GetProcAddress(profanity_filter, "ProfanityFilter_SetAllocator");
-	
+
 	if(!ProfanityFilter_SetAllocator)
 	{
 		lastError = GetLastError();
@@ -87,7 +87,7 @@ int harness_load_symbols()
 void * harness_load_dictionary()
 {
 	//dictionary_source = OpenFileMappingA(FILE_MAP_READ, true, "dictionary_source.bin");
-		
+
 	if((dictionary_src_file = CreateFileA("dictionary_source.bin", GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)) != (HANDLE) INVALID_HANDLE_VALUE)
 	{
 		dictionary_source = CreateFileMapping(dictionary_src_file, NULL, PAGE_READONLY, 0, 0, NULL);
@@ -138,25 +138,8 @@ int harness_filter(void * dictionary, char * test_input, char * output, size_t b
 	return retVal;
 }
 
-
-int main(int argc, char **argv)
+int harness_init(void *dictionary_src_ptr, void **dictionary)
 {
-	void *dictionary_src_ptr;
-	void *dictionary; // dictionary is allocated by the library, so we don't malloc() here. we just need a pointer to hold the address ProfanityFilter_Create() gives
-	char *output;
-	
-	FILE *inputfile;
-	char * filecontents;
-	long length;
-	size_t buffersize = 0;
-
-	if(argc < 2)
-	{
-		printf("Usage: %s inputfile\n", argv[0]);
-		return 1;
-	}
-
-
 	fprintf(stderr, "loading symbols...\n");
 	if(harness_load_symbols() > 0)
 	{
@@ -174,7 +157,7 @@ int main(int argc, char **argv)
 	}
 
 	fprintf(stderr, "initializing filter...\n");
-	if(harness_initialize_filter(dictionary_src_ptr, &dictionary) > 0)
+	if(harness_initialize_filter(dictionary_src_ptr, dictionary) > 0)
 	{
 		fprintf(stderr, "filter init fail\n");
 		CloseHandle(dictionary_source);
@@ -182,8 +165,22 @@ int main(int argc, char **argv)
 		return 4;
 	}
 
+	fprintf(stderr, "filter initialized\n");
+	return 0;
+}
+
+// TODO: inconsistent types with other instances of "dictionary"
+// here it is used as a pointer (vs pointer to pointer)
+void harness_do_fuzz(char *filename, void *dictionary)
+{
+	FILE *inputfile;
+	char *filecontents;
+	long length;
+	size_t buffersize;
+	char *output;
+
 	// open test input file and read contents
-	inputfile = fopen(argv[1], "rb");
+	inputfile = fopen(filename, "rb");
 
 	if(inputfile)
 	{
@@ -212,6 +209,33 @@ int main(int argc, char **argv)
 	}
 
 	free(output);
+}
+
+int main(int argc, char **argv)
+{
+	void *dictionary_src_ptr;
+	void *dictionary; // dictionary is allocated by the library, so we don't malloc() here. we just need a pointer to hold the address ProfanityFilter_Create() gives
+	char *output;
+
+	int init_result;
+
+	if(argc < 2)
+	{
+		printf("Usage: %s inputfile\n", argv[0]);
+		return 1;
+	}
+
+	init_result = harness_init(dictionary_src_ptr, &dictionary);
+
+	if(init_result != 0)
+	{
+		CloseHandle(dictionary_source);
+		CloseHandle(dictionary_src_file);
+		return init_result;
+	}
+
+	harness_do_fuzz(argv[1], dictionary);
+
 	CloseHandle(dictionary_source);
 	CloseHandle(dictionary_src_file);
 	return 0;
