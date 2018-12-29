@@ -13,6 +13,5 @@ cl /Zi main.c
 Example invocation:
 
 ```
-D:\src\winafl\build64\Release\afl-fuzz.exe -i ..\testcases\in -o ..\testcases\out -D D:\home\mkwin\DynamoRIO\DynamoRIO-Windows-7.0.0-RC1\DynamoRIO-Windows-7.0.0-RC1\bin64 -t 100000 -- -target_method main -coverage_module ProfanityFilter_x64_v120.dll -fuzz_iterations 5000 -target_module main.exe -nargs 2 -- main.exe @@
+D:\src\winafl\build64\Release\afl-fuzz.exe -i testcases\in -o testcases\out -D D:\home\mkwin\DynamoRIO\DynamoRIO-Windows-7.0.0-RC1\DynamoRIO-Windows-7.0.0-RC1\bin64 -t 100000 -- -target_method main -coverage_module ProfanityFilter_x64_v120.dll -fuzz_iterations 5000 -target_module main.exe -nargs 2 -- main.exe @@
 ```
-
