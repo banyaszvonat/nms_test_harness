@@ -2,7 +2,7 @@ This program is intended to be run by WinAFL, instrumenting the DLL being fuzzed
 
 Dependencies:
 - Profanityfilter_x64_v120.dll (Up to date version bundled with No Man's Sky as of September 2018)
-- Memory dump of the profanity dictionary (will be released later)
+- Memory dump of the profanity dictionary
 
 Compile with
 
